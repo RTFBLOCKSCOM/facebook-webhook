@@ -3,435 +3,755 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🤖 FB Auto-Reply Bot Dashboard</title>
+  <title>🤖 FB Auto-Reply — Multi-Page Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #1877f2;
-      --primary-dark: #166fe5;
-      --bg: #f0f2f5;
-      --card: #ffffff;
-      --text: #050505;
-      --text-muted: #65676b;
-      --border: #dadde1;
-      --success: #42b72a;
-      --error: #f02849;
-      --warning: #f7b928;
+      --bg: #0f0f12;
+      --surface: #18181b;
+      --surface-elevated: #27272a;
+      --border: #3f3f46;
+      --primary: #6366f1;
+      --primary-hover: #818cf8;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
     
-    .navbar { background: var(--primary); color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
-    .navbar h1 { font-size: 1.2rem; font-weight: 600; }
-    .navbar .status { font-size: 0.85rem; opacity: 0.9; }
+    /* Header */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header h1 span {
+      background: var(--primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
     
-    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    /* Main */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
     
-    .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--card); padding: 8px; border-radius: 12px; }
-    .tab { padding: 12px 24px; border: none; background: transparent; border-radius: 8px; font-weight: 500; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
-    .tab.active { background: var(--primary); color: white; }
-    .tab:hover:not(.active) { background: #f5f5f5; }
+    /* Pages Grid */
+    .pages-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
     
-    .card { background: var(--card); border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-    .card h2 { font-size: 1.1rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .card h2 span { font-size: 1.3rem; }
+    .page-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.2s;
+    }
+    .page-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    .page-card.disabled {
+      opacity: 0.5;
+    }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .page-name {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+    .page-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .page-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--success);
+    }
+    .page-status.off {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+    }
+    .page-status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
     
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.9rem; }
-    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; font-family: inherit; }
-    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,119,242,0.2); }
-    .form-group textarea { min-height: 120px; resize: vertical; font-family: 'Monaco', 'Menlo', monospace; }
-    .form-hint { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+    .page-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: var(--surface-elevated);
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 2px;
+    }
     
-    .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-success { background: var(--success); color: white; }
-    .btn-danger { background: var(--error); color: white; }
-    .btn-warning { background: var(--warning); color: var(--text); }
+    .page-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+    .btn-ghost {
+      background: var(--surface-elevated);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover {
+      border-color: var(--primary);
+    }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
     
-    .kb-list { display: grid; gap: 12px; }
-    .kb-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f7f8fa; border-radius: 8px; border: 1px solid var(--border); }
-    .kb-item-info h3 { font-size: 0.95rem; margin-bottom: 4px; }
-    .kb-item-info p { font-size: 0.8rem; color: var(--text-muted); }
-    .kb-item-actions { display: flex; gap: 8px; }
-    .kb-item-actions button { padding: 8px 16px; font-size: 0.85rem; border-radius: 6px; border: none; cursor: pointer; }
-    .kb-item-actions .edit { background: #e7f3ff; color: var(--primary); }
-    .kb-item-actions .delete { background: #ffebe6; color: var(--error); }
+    /* Add Page Card */
+    .add-card {
+      background: transparent;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 200px;
+    }
+    .add-card:hover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.05);
+    }
+    .add-card .icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--surface-elevated);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+    .add-card span {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
     
-    .logs { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 8px; font-family: 'Monaco', monospace; font-size: 0.8rem; max-height: 400px; overflow-y: auto; }
-    .log-entry { padding: 4px 0; border-bottom: 1px solid #333; }
-    .log-entry .time { color: #858585; }
-    .log-entry .type { color: #569cd6; }
-    .log-entry .type-msg { color: #4ec9b0; }
-    .log-entry .type-err { color: #f14c4c; }
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h2 {
+      font-size: 1.1rem;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    .modal-body {
+      padding: 24px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .form-group textarea {
+      min-height: 100px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
     
-    .test-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .test-input, .test-output { padding: 16px; border-radius: 8px; border: 1px solid var(--border); }
-    .test-input textarea { width: 100%; min-height: 100px; border: none; resize: none; font-family: inherit; }
-    .test-output { background: #f7f8fa; min-height: 100px; }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
     
-    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
-    .modal.active { display: flex; }
-    .modal-content { background: white; padding: 24px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .modal-header h3 { font-size: 1.1rem; }
-    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    /* Knowledge Section in Modal */
+    .kb-section {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .kb-section h3 {
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+    .kb-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .kb-tag {
+      background: var(--surface-elevated);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kb-tag button {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 0;
+      font-size: 1rem;
+    }
+    .kb-tag button:hover {
+      color: var(--danger);
+    }
     
-    .api-status { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: #e7f3ff; border-radius: 8px; margin-bottom: 16px; }
-    .api-status .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .api-status .dot.green { background: var(--success); }
-    .api-status .dot.red { background: var(--error); }
-    .api-status .dot.yellow { background: var(--warning); }
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 300;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .toast.success {
+      border-color: var(--success);
+      color: var(--success);
+    }
+    .toast.error {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
     
-    @media (max-width: 768px) {
-      .tabs { flex-wrap: wrap; }
-      .test-section { grid-template-columns: 1fr; }
+    /* Empty State */
+    .empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-muted);
+    }
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
     }
   </style>
 </head>
 <body>
-  <nav class="navbar">
-    <h1>🤖 FB Auto-Reply Bot Dashboard</h1>
-    <span class="status">OpenRouter: GPT-5.2</span>
-  </nav>
-  
-  <div class="container">
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('config')">⚙️ Configuration</button>
-      <button class="tab" onclick="switchTab('knowledge')">📚 Knowledge Base</button>
-      <button class="tab" onclick="switchTab('test')">🧪 Test AI</button>
-      <button class="tab" onclick="switchTab('logs')">📋 Logs</button>
+  <header class="header">
+    <h1>🤖 FB Auto-Reply <span>MULTI-PAGE</span></h1>
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-ghost" onclick="showGlobalConfig()">⚙️ Settings</button>
     </div>
-    
-    <!-- CONFIG TAB -->
-    <div id="config" class="tab-content">
-      <div class="card">
-        <h2><span>🔐</span> Facebook API Credentials</h2>
-        <div class="api-status">
-          <div class="dot yellow" id="apiStatusDot"></div>
-          <span id="apiStatusText">Checking configuration...</span>
-        </div>
+  </header>
+  
+  <main class="main">
+    <div class="pages-grid" id="pagesGrid">
+      <!-- Pages will be loaded here -->
+    </div>
+  </main>
+  
+  <!-- Add/Edit Page Modal -->
+  <div class="modal-overlay" id="pageModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add New Page</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editPageId">
         
         <div class="form-group">
-          <label>Verify Token (for Facebook Webhook)</label>
-          <input type="text" id="verifyToken" placeholder="e.g., MY_SECRET_VERIFY_TOKEN">
-          <p class="form-hint">Use this when setting up webhook in Facebook Developer Console</p>
+          <label>Page Name</label>
+          <input type="text" id="pageName" placeholder="e.g., My Business Page">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Verify Token</label>
+            <input type="text" id="verifyToken" placeholder="Webhook verification token">
+            <p class="form-hint">Use in Facebook Developer Console</p>
+          </div>
+          <div class="form-group">
+            <label>AI Model</label>
+            <select id="aiModel">
+              <option value="openai/gpt-5.2">GPT-5.2</option>
+              <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
+              <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+              <option value="qwen/qwen3.5-397b-a17b">Qwen 3.5</option>
+            </select>
+          </div>
         </div>
         
         <div class="form-group">
           <label>Page Access Token</label>
-          <input type="password" id="pageAccessToken" placeholder="Your Facebook Page Access Token">
-          <p class="form-hint">Get from Facebook Developer Console → My Apps → Messenger → Access Tokens</p>
+          <input type="password" id="pageAccessToken" placeholder="From Facebook Developer Console">
         </div>
         
         <div class="form-group">
-          <label>OpenRouter API Key</label>
-          <input type="password" id="openrouterKey" placeholder="sk-or-...">
-          <p class="form-hint">Get from <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></p>
+          <label>OpenRouter API Key (optional, page-specific)</label>
+          <input type="password" id="pageOpenrouterKey" placeholder="sk-or-... (overrides global)">
         </div>
         
+        <div class="kb-section">
+          <h3>📚 Knowledge Base Files</h3>
+          <div class="kb-tags" id="kbTags">
+            <!-- KB files will be loaded here -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="savePage()">💾 Save Page</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Global Config Modal -->
+  <div class="modal-overlay" id="configModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>⚙️ Global Settings</h2>
+        <button class="modal-close" onclick="closeConfigModal()">×</button>
+      </div>
+      <div class="modal-body">
         <div class="form-group">
-          <label>AI Model</label>
-          <select id="aiModel">
-            <option value="openai/gpt-5.2">GPT-5.2 (OpenAI via OpenRouter)</option>
+          <label>Default AI Model</label>
+          <select id="globalAiModel">
+            <option value="openai/gpt-5.2">GPT-5.2</option>
             <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
             <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
-            <option value="qwen/qwen3.5-397b-a17b">Qwen 3.5</option>
           </select>
         </div>
-        
-        <button class="btn btn-primary" onclick="saveConfig()">💾 Save Configuration</button>
-      </div>
-    </div>
-    
-    <!-- KNOWLEDGE BASE TAB -->
-    <div id="knowledge" class="tab-content" style="display:none;">
-      <div class="card">
-        <h2><span>📚</span> Knowledge Base (.MD Files)</h2>
-        <p style="color: var(--text-muted); margin-bottom: 16px;">Create .md files that the AI will use as knowledge. The bot will search these files when answering questions.</p>
-        
-        <button class="btn btn-primary" onclick="openKbModal()">➕ Add Knowledge File</button>
-      </div>
-      
-      <div class="kb-list" id="kbList">
-        <!-- KB items will be loaded here -->
-      </div>
-    </div>
-    
-    <!-- TEST TAB -->
-    <div id="test" class="tab-content" style="display:none;">
-      <div class="card">
-        <h2><span>🧪</span> Test AI Response</h2>
-        <p style="color: var(--text-muted); margin-bottom: 16px;">Test how the AI responds with your knowledge base.</p>
-        
-        <div class="test-section">
-          <div class="test-input">
-            <textarea id="testInput" placeholder="Type your test message here..."></textarea>
-            <button class="btn btn-primary" style="margin-top: 12px;" onclick="testAI()">🚀 Send to AI</button>
-          </div>
-          <div class="test-output" id="testOutput">
-            <p style="color: var(--text-muted);">AI response will appear here...</p>
-          </div>
+        <div class="form-group">
+          <label>Default OpenRouter API Key</label>
+          <input type="password" id="globalOpenrouterKey" placeholder="sk-or-...">
+          <p class="form-hint">Used when page doesn't have its own key</p>
         </div>
       </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeConfigModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveGlobalConfig()">💾 Save Settings</button>
+      </div>
     </div>
-    
-    <!-- LOGS TAB -->
-    <div id="logs" class="tab-content" style="display:none;">
-      <div class="card">
-        <h2><span>📋</span> Message Logs</h2>
-        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-          <button class="btn btn-primary" onclick="refreshLogs()">🔄 Refresh</button>
-          <button class="btn btn-danger" onclick="clearLogs()">🗑️ Clear</button>
+  </div>
+  
+  <!-- Knowledge Modal -->
+  <div class="modal-overlay" id="kbModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>📚 Manage Knowledge Base</h2>
+        <button class="modal-close" onclick="closeKbModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Add New File</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="kbFileName" placeholder="filename (e.g., faq)" style="flex: 1;">
+            <button class="btn btn-primary" onclick="addKbFile()">Add</button>
+          </div>
         </div>
-        <div class="logs" id="logContainer">
-          <p style="color: var(--text-muted);">No logs yet...</p>
+        <div class="kb-tags" id="kbListAll" style="margin-top: 16px;">
+          <!-- All KB files -->
         </div>
       </div>
     </div>
   </div>
   
-  <!-- KB MODAL -->
-  <div class="modal" id="kbModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>➕ Add Knowledge File</h3>
-        <button class="modal-close" onclick="closeKbModal()">×</button>
-      </div>
-      
-      <div class="form-group">
-        <label>File Name (without .md)</label>
-        <input type="text" id="kbFileName" placeholder="e.g., company-info">
-      </div>
-      
-      <div class="form-group">
-        <label>Content (Markdown)</label>
-        <textarea id="kbContent" placeholder="# Company Info&#10;&#10;Our company was founded in 2024...&#10;&#10;## Services&#10;- Web Development&#10;- AI Integration"></textarea>
-      </div>
-      
-      <button class="btn btn-primary" onclick="saveKbFile()">💾 Save File</button>
-    </div>
-  </div>
+  <div class="toast" id="toast"></div>
 
   <script>
-    // State
-    let config = {
-      verifyToken: '',
-      pageAccessToken: '',
-      openrouterKey: '',
-      aiModel: 'openai/gpt-5.2'
-    };
+    let pages = [];
     let kbFiles = [];
     
-    // Load config from server
-    async function loadConfig() {
-      try {
-        const res = await fetch('/api/config');
-        if (res.ok) {
-          config = await res.json();
-          document.getElementById('verifyToken').value = config.verifyToken || '';
-          document.getElementById('pageAccessToken').value = config.pageAccessToken || '';
-          document.getElementById('openrouterKey').value = config.openrouterKey || '';
-          document.getElementById('aiModel').value = config.aiModel || 'openai/gpt-5.2';
-          updateApiStatus();
-        }
-      } catch (e) { console.error('Load config error:', e); }
+    // Load pages
+    async function loadPages() {
+      const res = await fetch('/api/pages');
+      pages = await res.json();
+      renderPages();
     }
     
-    function updateApiStatus() {
-      const dot = document.getElementById('apiStatusDot');
-      const text = document.getElementById('apiStatusText');
-      
-      if (config.pageAccessToken && config.verifyToken) {
-        dot.className = 'dot green';
-        text.textContent = '✓ Configuration saved - Bot is ready!';
-      } else {
-        dot.className = 'dot yellow';
-        text.textContent = '⚠️ Please configure tokens to activate the bot';
-      }
-    }
-    
-    async function saveConfig() {
-      config.verifyToken = document.getElementById('verifyToken').value;
-      config.pageAccessToken = document.getElementById('pageAccessToken').value;
-      config.openrouterKey = document.getElementById('openrouterKey').value;
-      config.aiModel = document.getElementById('aiModel').value;
-      
-      try {
-        const res = await fetch('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(config)
-        });
-        
-        if (res.ok) {
-          alert('✅ Configuration saved! Webhook is now active.');
-          updateApiStatus();
-        } else {
-          alert('❌ Failed to save configuration');
-        }
-      } catch (e) {
-        alert('❌ Error: ' + e.message);
-      }
-    }
-    
-    // Knowledge Base
+    // Load KB files
     async function loadKB() {
-      try {
-        const res = await fetch('/api/knowledge');
-        if (res.ok) {
-          kbFiles = await res.json();
-          renderKB();
-        }
-      } catch (e) { console.error('Load KB error:', e); }
+      const res = await fetch('/api/knowledge');
+      kbFiles = await res.json();
+      renderKbTags();
+      renderKbListAll();
     }
     
-    function renderKB() {
-      const list = document.getElementById('kbList');
-      if (kbFiles.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 24px;">No knowledge files yet. Click "Add Knowledge File" to create one.</p>';
+    // Render pages grid
+    function renderPages() {
+      const grid = document.getElementById('pagesGrid');
+      
+      let html = '';
+      
+      pages.forEach(page => {
+        html += `
+          <div class="page-card ${page.enabled ? '' : 'disabled'}">
+            <div class="page-header">
+              <div>
+                <div class="page-name">${page.name}</div>
+                <div class="page-id">${page.id}</div>
+              </div>
+              <div class="page-status ${page.enabled ? '' : 'off'}">
+                <span class="dot"></span>
+                ${page.enabled ? 'Active' : 'Disabled'}
+              </div>
+            </div>
+            <div class="page-stats">
+              <div class="stat">
+                <div class="stat-label">AI Model</div>
+                <div class="stat-value">${page.aiModel || 'default'}</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Knowledge</div>
+                <div class="stat-value">${kbFiles.length} files</div>
+              </div>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-ghost" onclick="editPage('${page.id}')">Edit</button>
+              <button class="btn btn-ghost" onclick="togglePage('${page.id}')">
+                ${page.enabled ? 'Disable' : 'Enable'}
+              </button>
+              <button class="btn btn-danger" onclick="deletePage('${page.id}')">Delete</button>
+            </div>
+          </div>
+        `;
+      });
+      
+      // Add card
+      html += `
+        <div class="add-card" onclick="openAddModal()">
+          <div class="icon">+</div>
+          <span>Add New Facebook Page</span>
+        </div>
+      `;
+      
+      grid.innerHTML = html;
+    }
+    
+    // Render KB tags in modal
+    function renderKbTags() {
+      const tags = document.getElementById('kbTags');
+      tags.innerHTML = kbFiles.map(kb => `
+        <div class="kb-tag">
+          📄 ${kb.name}.md
+        </div>
+      `).join('') || '<p style="color: var(--text-dim); font-size: 0.85rem;">No knowledge files. Add some below.</p>';
+    }
+    
+    // Render all KB files
+    function renderKbListAll() {
+      const list = document.getElementById('kbListAll');
+      list.innerHTML = kbFiles.map(kb => `
+        <div class="kb-tag">
+          📄 ${kb.name}.md
+          <button onclick="deleteKbFile('${kb.name}')">×</button>
+        </div>
+      `).join('') || '<p style="color: var(--text-dim);">No files yet.</p>';
+    }
+    
+    // Modal functions
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = 'Add New Page';
+      document.getElementById('editPageId').value = '';
+      document.getElementById('pageName').value = '';
+      document.getElementById('verifyToken').value = '';
+      document.getElementById('pageAccessToken').value = '';
+      document.getElementById('pageOpenrouterKey').value = '';
+      document.getElementById('aiModel').value = 'openai/gpt-5.2';
+      document.getElementById('pageModal').classList.add('active');
+    }
+    
+    function editPage(id) {
+      const page = pages.find(p => p.id === id);
+      if (!page) return;
+      
+      document.getElementById('modalTitle').textContent = 'Edit Page';
+      document.getElementById('editPageId').value = page.id;
+      document.getElementById('pageName').value = page.name;
+      document.getElementById('verifyToken').value = page.verifyToken || '';
+      document.getElementById('pageAccessToken').value = page.pageAccessToken || '';
+      document.getElementById('pageOpenrouterKey').value = page.openrouterKey || '';
+      document.getElementById('aiModel').value = page.aiModel || 'openai/gpt-5.2';
+      document.getElementById('pageModal').classList.add('active');
+    }
+    
+    function closeModal() {
+      document.getElementById('pageModal').classList.remove('active');
+    }
+    
+    async function savePage() {
+      const id = document.getElementById('editPageId').value;
+      const data = {
+        name: document.getElementById('pageName').value,
+        verifyToken: document.getElementById('verifyToken').value,
+        pageAccessToken: document.getElementById('pageAccessToken').value,
+        openrouterKey: document.getElementById('pageOpenrouterKey').value,
+        aiModel: document.getElementById('aiModel').value
+      };
+      
+      if (!data.name) {
+        showToast('Please enter a page name', 'error');
         return;
       }
       
-      list.innerHTML = kbFiles.map(kb => `
-        <div class="kb-item">
-          <div class="kb-item-info">
-            <h3>${kb.name}.md</h3>
-            <p>${kb.content.substring(0, 100)}...</p>
-          </div>
-          <div class="kb-item-actions">
-            <button class="edit" onclick="editKB('${kb.name}')">Edit</button>
-            <button class="delete" onclick="deleteKB('${kb.name}')">Delete</button>
-          </div>
-        </div>
-      `).join('');
+      let url = '/api/pages';
+      let method = 'POST';
+      
+      if (id) {
+        url = '/api/pages/' + id;
+        method = 'PUT';
+      }
+      
+      const res = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      
+      if (res.ok) {
+        showToast('Page saved!', 'success');
+        closeModal();
+        loadPages();
+      } else {
+        showToast('Failed to save page', 'error');
+      }
     }
     
-    function openKbModal() {
+    async function togglePage(id) {
+      const page = pages.find(p => p.id === id);
+      if (!page) return;
+      
+      await fetch('/api/pages/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !page.enabled })
+      });
+      
+      loadPages();
+    }
+    
+    async function deletePage(id) {
+      if (!confirm('Delete this page?')) return;
+      
+      await fetch('/api/pages/' + id, { method: 'DELETE' });
+      showToast('Page deleted', 'success');
+      loadPages();
+    }
+    
+    // Global config
+    async function showGlobalConfig() {
+      const res = await fetch('/api/config');
+      const config = await res.json();
+      document.getElementById('globalAiModel').value = config.defaultAiModel || 'openai/gpt-5.2';
+      document.getElementById('globalOpenrouterKey').value = '';
+      document.getElementById('configModal').classList.add('active');
+    }
+    
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.remove('active');
+    }
+    
+    async function saveGlobalConfig() {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defaultAiModel: document.getElementById('globalAiModel').value,
+          openrouterKey: document.getElementById('globalOpenrouterKey').value
+        })
+      });
+      showToast('Settings saved!', 'success');
+      closeConfigModal();
+    }
+    
+    // Knowledge base
+    async function addKbFile() {
+      const name = document.getElementById('kbFileName').value.trim();
+      if (!name) return;
+      
+      await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, content: '# ' + name + '\n\nAdd your content here.' })
+      });
+      
       document.getElementById('kbFileName').value = '';
-      document.getElementById('kbContent').value = '';
-      document.getElementById('kbModal').classList.add('active');
+      loadKB();
+    }
+    
+    async function deleteKbFile(name) {
+      if (!confirm('Delete ' + name + '?')) return;
+      await fetch('/api/knowledge/' + name, { method: 'DELETE' });
+      loadKB();
     }
     
     function closeKbModal() {
       document.getElementById('kbModal').classList.remove('active');
     }
     
-    async function saveKbFile() {
-      const name = document.getElementById('kbFileName').value.trim();
-      const content = document.getElementById('kbContent').value;
-      
-      if (!name) { alert('Please enter a file name'); return; }
-      
-      try {
-        const res = await fetch('/api/knowledge', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, content })
-        });
-        
-        if (res.ok) {
-          closeKbModal();
-          loadKB();
-          alert('✅ Knowledge file saved!');
-        } else {
-          alert('❌ Failed to save file');
-        }
-      } catch (e) {
-        alert('❌ Error: ' + e.message);
-      }
-    }
-    
-    async function editKB(name) {
-      const kb = kbFiles.find(k => k.name === name);
-      if (!kb) return;
-      
-      document.getElementById('kbFileName').value = kb.name;
-      document.getElementById('kbContent').value = kb.content;
-      document.getElementById('kbModal').classList.add('active');
-    }
-    
-    async function deleteKB(name) {
-      if (!confirm(`Delete ${name}.md?`)) return;
-      
-      try {
-        await fetch(`/api/knowledge/${name}`, { method: 'DELETE' });
-        loadKB();
-      } catch (e) { alert('Error: ' + e.message); }
-    }
-    
-    // Test AI
-    async function testAI() {
-      const input = document.getElementById('testInput').value;
-      const output = document.getElementById('testOutput');
-      
-      if (!input.trim()) { alert('Please enter a test message'); return; }
-      
-      output.innerHTML = '<p style="color: var(--text-muted);">🤔 Thinking...</p>';
-      
-      try {
-        const res = await fetch('/api/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: input })
-        });
-        
-        const data = await res.json();
-        
-        if (data.response) {
-          output.innerHTML = `<p>${data.response}</p>`;
-        } else if (data.error) {
-          output.innerHTML = `<p style="color: var(--error);">❌ Error: ${data.error}</p>`;
-        }
-      } catch (e) {
-        output.innerHTML = `<p style="color: var(--error);">❌ Error: ${e.message}</p>`;
-      }
-    }
-    
-    // Logs
-    async function refreshLogs() {
-      try {
-        const res = await fetch('/api/logs');
-        const logs = await res.json();
-        
-        const container = document.getElementById('logContainer');
-        if (logs.length === 0) {
-          container.innerHTML = '<p style="color: var(--text-muted);">No logs yet...</p>';
-          return;
-        }
-        
-        container.innerHTML = logs.map(log => `
-          <div class="log-entry">
-            <span class="time">${new Date(log.timestamp).toLocaleString()}</span>
-            <span class="type"> [${log.type}]</span>
-            <span class="type-${log.type === 'ERROR' ? 'err' : 'msg'}">${JSON.stringify(log.data)}</span>
-          </div>
-        `).join('');
-      } catch (e) { console.error('Load logs error:', e); }
-    }
-    
-    async function clearLogs() {
-      try {
-        await fetch('/api/logs', { method: 'DELETE' });
-        refreshLogs();
-      } catch (e) { console.error('Clear logs error:', e); }
-    }
-    
-    // Tabs
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-      document.getElementById(tabId).style.display = 'block';
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      if (tabId === 'knowledge') loadKB();
-      if (tabId === 'logs') refreshLogs();
+    // Toast
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast ' + type + ' show';
+      setTimeout(() => toast.classList.remove('show'), 3000);
     }
     
     // Init
-    loadConfig();
+    loadPages();
+    loadKB();
   </script>
 </body>
 </html>

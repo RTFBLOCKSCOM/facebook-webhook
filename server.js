@@ -14,31 +14,42 @@ app.use(express.static('public'));
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const KNOWLEDGE_DIR = path.join(DATA_DIR, 'knowledge');
+const PAGES_FILE = path.join(DATA_DIR, 'pages.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 if (!fs.existsSync(KNOWLEDGE_DIR)) fs.mkdirSync(KNOWLEDGE_DIR);
 
-// Config file path
-const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+// Load pages configuration
+function loadPages() {
+  try {
+    if (fs.existsSync(PAGES_FILE)) {
+      return JSON.parse(fs.readFileSync(PAGES_FILE, 'utf8'));
+    }
+  } catch (e) { console.error('Load pages error:', e); }
+  return [];
+}
+
+function savePages(pages) {
+  fs.writeFileSync(PAGES_FILE, JSON.stringify(pages, null, 2));
+}
 
 // Load or create config
-function loadConfig() {
+function loadGlobalConfig() {
+  const configFile = path.join(DATA_DIR, 'config.json');
   try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    if (fs.existsSync(configFile)) {
+      return JSON.parse(fs.readFileSync(configFile, 'utf8'));
     }
   } catch (e) { console.error('Load config error:', e); }
   return {
-    verifyToken: '',
-    pageAccessToken: '',
-    openrouterKey: '',
-    aiModel: 'openai/gpt-5.2'
+    defaultAiModel: 'openai/gpt-5.2',
+    openrouterKey: ''
   };
 }
 
-function saveConfig(config) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+function saveGlobalConfig(config) {
+  fs.writeFileSync(path.join(DATA_DIR, 'config.json'), JSON.stringify(config, null, 2));
 }
 
 // Message log
@@ -67,12 +78,11 @@ function loadKnowledgeFiles() {
   return files;
 }
 
-function searchKnowledge(query) {
+function searchKnowledge(query, pageId = null) {
   const kbFiles = loadKnowledgeFiles();
   const relevant = [];
   
   for (const file of kbFiles) {
-    // Simple keyword matching
     const lowerContent = file.content.toLowerCase();
     const lowerQuery = query.toLowerCase();
     
@@ -86,11 +96,18 @@ function searchKnowledge(query) {
 }
 
 // OpenRouter AI Response
-async function generateAIResponse(userMessage, kbContext) {
-  const config = loadConfig();
+async function generateAIResponse(userMessage, kbContext, pageId) {
+  const config = loadGlobalConfig();
   
-  if (!config.openrouterKey) {
-    return { error: 'OpenRouter API key not configured' };
+  // Get page-specific settings
+  const pages = loadPages();
+  const page = pages.find(p => p.id === pageId);
+  
+  const apiKey = page?.openrouterKey || config.openrouterKey;
+  const model = page?.aiModel || config.defaultAiModel || 'openai/gpt-5.2';
+  
+  if (!apiKey) {
+    return { error: 'OpenRouter API key not configured for this page' };
   }
   
   const systemPrompt = `You are a helpful customer support bot for a Facebook Page. 
@@ -106,7 +123,7 @@ Guidelines:
     const response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
       {
-        model: config.aiModel || 'openai/gpt-5.2',
+        model: model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
@@ -115,7 +132,7 @@ Guidelines:
       },
       {
         headers: {
-          'Authorization': `Bearer ${config.openrouterKey}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://webhook.ramilflaviano.art',
           'X-Title': 'FB Auto-Reply Bot'
@@ -135,6 +152,33 @@ Guidelines:
   }
 }
 
+// Send auto-reply to user
+async function sendAutoReply(senderId, replyText, pageAccessToken) {
+  if (!pageAccessToken) {
+    logMessage('ERROR', { msg: 'PAGE_ACCESS_TOKEN not configured' });
+    return;
+  }
+
+  try {
+    await axios.post(
+      'https://graph.facebook.com/v18.0/me/messages',
+      {
+        recipient: { id: senderId },
+        message: { text: replyText }
+      },
+      {
+        params: { access_token: pageAccessToken },
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+    logMessage('SENT', { senderId, reply: replyText });
+  } catch (error) {
+    logMessage('ERROR', { 
+      msg: error.response?.data || error.message 
+    });
+  }
+}
+
 // ==================== ROUTES ====================
 
 // Dashboard
@@ -142,26 +186,90 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
-// API: Config
-app.get('/api/config', (req, res) => {
-  const config = loadConfig();
+// API: Pages management
+app.get('/api/pages', (req, res) => {
+  const pages = loadPages();
   // Mask sensitive data
-  config.pageAccessToken = config.pageAccessToken ? '***' + config.pageAccessToken.slice(-4) : '';
-  config.openrouterKey = config.openrouterKey ? '***' + config.openrouterKey.slice(-4) : '';
-  res.json(config);
+  const masked = pages.map(p => ({
+    id: p.id,
+    name: p.name,
+    verifyToken: p.verifyToken ? '***' + p.verifyToken.slice(-4) : '',
+    pageAccessToken: p.pageAccessToken ? '***' + p.pageAccessToken.slice(-4) : '',
+    openrouterKey: p.openrouterKey ? '***' + p.openrouterKey.slice(-4) : '',
+    aiModel: p.aiModel,
+    knowledgeBase: p.knowledgeBase,
+    enabled: p.enabled,
+    createdAt: p.createdAt
+  }));
+  res.json(masked);
+});
+
+app.post('/api/pages', (req, res) => {
+  const { name, verifyToken, pageAccessToken, openrouterKey, aiModel } = req.body;
+  const pages = loadPages();
+  
+  const newPage = {
+    id: 'page_' + Date.now(),
+    name: name || 'New Page ' + (pages.length + 1),
+    verifyToken: verifyToken || 'VERIFY_TOKEN_' + Math.random().toString(36).substring(7).toUpperCase(),
+    pageAccessToken: pageAccessToken || '',
+    openrouterKey: openrouterKey || '',
+    aiModel: aiModel || 'openai/gpt-5.2',
+    knowledgeBase: [],
+    enabled: true,
+    createdAt: new Date().toISOString()
+  };
+  
+  pages.push(newPage);
+  savePages(pages);
+  res.json({ success: true, page: { id: newPage.id, name: newPage.name } });
+});
+
+app.put('/api/pages/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, verifyToken, pageAccessToken, openrouterKey, aiModel, knowledgeBase, enabled } = req.body;
+  const pages = loadPages();
+  const index = pages.findIndex(p => p.id === id);
+  
+  if (index === -1) return res.status(404).json({ error: 'Page not found' });
+  
+  if (name) pages[index].name = name;
+  if (verifyToken && !verifyToken.startsWith('***')) pages[index].verifyToken = verifyToken;
+  if (pageAccessToken && !pageAccessToken.startsWith('***')) pages[index].pageAccessToken = pageAccessToken;
+  if (openrouterKey && !openrouterKey.startsWith('***')) pages[index].openrouterKey = openrouterKey;
+  if (aiModel) pages[index].aiModel = aiModel;
+  if (knowledgeBase) pages[index].knowledgeBase = knowledgeBase;
+  if (enabled !== undefined) pages[index].enabled = enabled;
+  
+  savePages(pages);
+  res.json({ success: true });
+});
+
+app.delete('/api/pages/:id', (req, res) => {
+  const { id } = req.params;
+  let pages = loadPages();
+  pages = pages.filter(p => p.id !== id);
+  savePages(pages);
+  res.json({ success: true });
+});
+
+// API: Global config
+app.get('/api/config', (req, res) => {
+  const config = loadGlobalConfig();
+  res.json({
+    defaultAiModel: config.defaultAiModel,
+    openrouterKey: config.openrouterKey ? '***' + config.openrouterKey.slice(-4) : ''
+  });
 });
 
 app.post('/api/config', (req, res) => {
-  const newConfig = req.body;
-  const currentConfig = loadConfig();
+  const { defaultAiModel, openrouterKey } = req.body;
+  const config = loadGlobalConfig();
   
-  // Only update if value is not masked
-  if (!newConfig.verifyToken.startsWith('***')) currentConfig.verifyToken = newConfig.verifyToken;
-  if (!newConfig.pageAccessToken.startsWith('***')) currentConfig.pageAccessToken = newConfig.pageAccessToken;
-  if (!newConfig.openrouterKey.startsWith('***')) currentConfig.openrouterKey = newConfig.openrouterKey;
-  currentConfig.aiModel = newConfig.aiModel;
+  if (defaultAiModel) config.defaultAiModel = defaultAiModel;
+  if (openrouterKey && !openrouterKey.startsWith('***')) config.openrouterKey = openrouterKey;
   
-  saveConfig(currentConfig);
+  saveGlobalConfig(config);
   res.json({ success: true });
 });
 
@@ -192,11 +300,11 @@ app.delete('/api/knowledge/:name', (req, res) => {
 
 // API: Test AI
 app.post('/api/test', async (req, res) => {
-  const { message } = req.body;
+  const { message, pageId } = req.body;
   if (!message) return res.status(400).json({ error: 'Message required' });
   
-  const kbContext = searchKnowledge(message);
-  const result = await generateAIResponse(message, kbContext);
+  const kbContext = searchKnowledge(message, pageId);
+  const result = await generateAIResponse(message, kbContext, pageId);
   res.json(result);
 });
 
@@ -212,16 +320,19 @@ app.delete('/api/logs', (req, res) => {
 
 // ==================== FACEBOOK WEBHOOK ====================
 
-// Facebook Webhook Verification (GET)
+// Facebook Webhook Verification (GET) - handles all pages
 app.get('/webhook', (req, res) => {
-  const config = loadConfig();
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  logMessage('VERIFY', { mode, tokenMatch: token === config.verifyToken });
+  // Check against any page's verify token
+  const pages = loadPages();
+  const validToken = pages.some(p => p.verifyToken === token);
 
-  if (mode === 'subscribe' && token === config.verifyToken) {
+  logMessage('VERIFY', { mode, tokenMatch: validToken });
+
+  if (mode === 'subscribe' && validToken) {
     console.log('WEBHOOK_VERIFIED');
     res.status(200).send(challenge);
   } else {
@@ -233,7 +344,6 @@ app.get('/webhook', (req, res) => {
 // Facebook Webhook (POST) - incoming messages
 app.post('/webhook', async (req, res) => {
   const body = req.body;
-  const config = loadConfig();
 
   logMessage('RECEIVED', body);
 
@@ -243,24 +353,38 @@ app.post('/webhook', async (req, res) => {
   // Handle messages
   if (body.object === 'page') {
     for (const entry of body.entry) {
+      const pageId = entry.id;
+      
+      // Find the page configuration
+      const pages = loadPages();
+      const pageConfig = pages.find(p => p.id === pageId || p.pageAccessToken?.includes(pageId));
+      
+      if (!pageConfig) {
+        logMessage('ERROR', { msg: 'Page not configured: ' + pageId });
+        continue;
+      }
+      
+      if (!pageConfig.enabled) {
+        logMessage('SKIP', { msg: 'Page disabled: ' + pageConfig.name });
+        continue;
+      }
+      
       for (const messaging of entry.messaging) {
         const senderId = messaging.sender.id;
         const message = messaging.message;
         
-        // Only handle text messages
         if (message && message.text) {
           const userText = message.text;
-          logMessage('MESSAGE', { senderId, text: userText });
+          logMessage('MESSAGE', { page: pageConfig.name, senderId, text: userText });
           
           // Generate AI response with knowledge base
-          const kbContext = searchKnowledge(userText);
-          const aiResult = await generateAIResponse(userText, kbContext);
+          const kbContext = searchKnowledge(userText, pageConfig.id);
+          const aiResult = await generateAIResponse(userText, kbContext, pageConfig.id);
           
           if (aiResult.response) {
-            // Send auto-reply
-            await sendAutoReply(senderId, aiResult.response, config.pageAccessToken);
+            await sendAutoReply(senderId, aiResult.response, pageConfig.pageAccessToken);
           } else if (aiResult.error) {
-            await sendAutoReply(senderId, "Thanks for your message! We'll get back to you soon. 😊", config.pageAccessToken);
+            await sendAutoReply(senderId, "Thanks for your message! We'll get back to you soon. 😊", pageConfig.pageAccessToken);
             logMessage('ERROR', { msg: aiResult.error });
           }
         }
@@ -269,33 +393,6 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// Send auto-reply to user
-async function sendAutoReply(senderId, replyText, pageAccessToken) {
-  if (!pageAccessToken || pageAccessToken === 'YOUR_PAGE_ACCESS_TOKEN' || pageAccessToken.startsWith('***')) {
-    logMessage('ERROR', { msg: 'PAGE_ACCESS_TOKEN not configured' });
-    return;
-  }
-
-  try {
-    await axios.post(
-      'https://graph.facebook.com/v18.0/me/messages',
-      {
-        recipient: { id: senderId },
-        message: { text: replyText }
-      },
-      {
-        params: { access_token: pageAccessToken },
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-    logMessage('SENT', { senderId, reply: replyText });
-  } catch (error) {
-    logMessage('ERROR', { 
-      msg: error.response?.data || error.message 
-    });
-  }
-}
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
@@ -303,7 +400,7 @@ app.get('/health', (req, res) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🤖 Facebook Auto-Reply Bot running on port ${PORT}`);
+  console.log(`🤖 Facebook Multi-Page Auto-Reply Bot running on port ${PORT}`);
   console.log(`📋 Dashboard: http://localhost:${PORT}/dashboard`);
   console.log(`🔒 Webhook URL: http://localhost:${PORT}/webhook`);
 });
