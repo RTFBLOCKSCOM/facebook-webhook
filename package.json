@@ -1,0 +1,17 @@
+{
+  "name": "facebook-webhook",
+  "version": "1.0.0",
+  "description": "Facebook Page Auto-Reply Bot with Webhooks",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["facebook", "webhook", "bot", "messenger", "auto-reply"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  }
+}
